@@ -45,3 +45,8 @@ class Shield(Cell):
         super()
         self.heat = heat
         self.efficiency = efficiency
+
+class Conductor(Cell):
+    
+    def __init__(self):
+        super()
