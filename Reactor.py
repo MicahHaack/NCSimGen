@@ -5,9 +5,8 @@ width, length, and height here refer to the reactor internal
 
 """
 
+from asyncio import shield
 import numpy as np
-from sklearn import cluster
-from zmq import curve_keypair
 
 from Cell import Cell
 from Cell import FuelCell
@@ -73,6 +72,106 @@ class Reactor:
 
         return foundWall
     
+    # returns isLineValid, fluxSum, lineEff
+    def checkModLine(self, layerNum, rowNum, cellNum, layerWalk, rowWalk, cellWalk, totalChecked, fluxSum, lineEff):
+        
+        if layerNum < 0 or layerNum >= self.height or rowNum < 0 or rowNum >= self.rows or cellNum < 0 or cellNum >= self.cols:
+            return 0, 0, 0
+        
+        cell = self.grid[layerNum][rowNum][cellNum]
+        # if we are at the end of the mod line, check for a valid end component
+        # TODO: implement reflectors (length counts twice!)
+        # TODO: implement end of line Irradiator
+        if totalChecked == 4:
+            if isinstance(cell, FuelCell):
+                # valid moderator line
+                return 1, fluxSum, lineEff
+        
+        # otherwise, check if the current cell is a valid moderator (or shield)
+        if isinstance(cell, Moderator):
+            # then continue walking along the path
+            fluxSum += cell.flux
+            lineEff += cell.efficiency
+            return self.checkModLine(layerNum + layerWalk, rowNum + rowWalk, cellNum + cellWalk,
+                               layerWalk, rowWalk, cellWalk, totalChecked + 1, fluxSum, lineEff)
+        elif isinstance(cell, Shield):
+            return self.checkModLine(layerNum + layerWalk, rowNum + rowWalk, cellNum + cellWalk,
+                               layerWalk, rowWalk, cellWalk, totalChecked + 1, fluxSum, lineEff)
+        # check if we ended the path early
+        elif totalChecked != 0 and isinstance(cell, FuelCell):
+            return 1, fluxSum, lineEff / totalChecked
+        elif isinstance(cell, FuelCell):
+            # starter case
+            return self.checkModLine(layerNum + layerWalk, rowNum + rowWalk, cellNum + cellWalk,
+                               layerWalk, rowWalk, cellWalk, totalChecked, fluxSum, lineEff)
+        elif isinstance(cell, Irradiator):
+            return 1, 0, 0
+        # check reflector
+        elif isinstance(cell, Reflector):
+            if totalChecked <= 2:
+                return 1, fluxSum * 2 * cell.reflectivity, (lineEff / totalChecked) * cell.efficiency
+        
+        # otherwise, invalid moderator line, return a flux of 0
+        return 0, 0, 0
+            
+    
+    # assuming all are primed with a perfect
+    # Cf-252 source for now (1.0 efficiency)
+    def checkFuelCell(self, layerNum, rowNum, cellNum):
+        
+        # need to check the in-line components for valid moderator lines,
+        # and sum up the neutron flux
+        # TODO: implement reflectors -> might be done?
+        # TODO: implement shields -> might be done?
+        # TODO: implement priming
+        
+        # count adjacent (valid!) moderator lines
+        validModLines = 0
+        totalFlux = 0
+        positionalEff = 0
+        
+        checkLine = 0
+        lineFlux = 0
+        lineEff = 0
+        
+        # vertical dim
+        checkLine, lineFlux, lineEff = self.checkModLine(layerNum, rowNum, cellNum,
+                            1, 0, 0, 0, 0, 0)
+        validModLines += checkLine
+        totalFlux += lineFlux
+        positionalEff += lineEff
+        checkLine, lineFlux, lineEff = self.checkModLine(layerNum, rowNum, cellNum,
+                            -1, 0, 0, 0, 0, 0)
+        validModLines += checkLine
+        totalFlux += lineFlux
+        positionalEff += lineEff
+        
+        # horiz dim 1 (row)
+        checkLine, lineFlux, lineEff = self.checkModLine(layerNum, rowNum, cellNum,
+                            0, 1, 0, 0, 0, 0)
+        validModLines += checkLine
+        totalFlux += lineFlux
+        positionalEff += lineEff
+        checkLine, lineFlux, lineEff = self.checkModLine(layerNum, rowNum, cellNum,
+                            0, -1, 0, 0, 0, 0)
+        validModLines += checkLine
+        totalFlux += lineFlux
+        positionalEff += lineEff
+            
+        # horiz dim 2 (cell)
+        checkLine, lineFlux, lineEff = self.checkModLine(layerNum, rowNum, cellNum,
+                            0, 0, 1, 0, 0, 0)
+        validModLines += checkLine
+        totalFlux += lineFlux
+        positionalEff += lineEff
+        checkLine, lineFlux, lineEff = self.checkModLine(layerNum, rowNum, cellNum,
+                            0, 0, -1, 0, 0, 0)
+        validModLines += checkLine
+        totalFlux += lineFlux
+        positionalEff += lineEff
+    
+        return validModLines, totalFlux, positionalEff
+    
     def getNumValidClusters(self):
         
         # start by looking for fuel cells
@@ -103,13 +202,15 @@ class Reactor:
                     # check visited list and skip if already visited
                     if visited[layerNum][rowNum][cellNum] == True:
                         continue
-                    
                     # if we see a fuel cell start checking the cluster
                     if isinstance(cell, FuelCell):
-                        
-                        # if we hit a wall then increment the cluster count
-                        if self.iterClusterSearch(layerNum, rowNum, cellNum, visited):
-                            clusterCount += 1
+                        # check if fuel cell is valid
+                        numLines, totalFlux, lineEff = self.checkFuelCell(layerNum, rowNum, cellNum)
+                        if numLines > 0 and totalFlux >= cell.fuel.criticality:
+                            # TODO: check self-priming fuels
+                            # if we hit a wall then increment the cluster count
+                            if self.iterClusterSearch(layerNum, rowNum, cellNum, visited):
+                                clusterCount += 1
 
         return clusterCount
     

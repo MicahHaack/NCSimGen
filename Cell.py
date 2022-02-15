@@ -1,14 +1,16 @@
+from Fuel import Fuel
 
 class Cell:
 
-    def __init__():
-        pass
+    def __init__(self, isActive = False):
+        self.isActive = isActive
 
 class FuelCell(Cell):
 
-    def __init__(self, fuel):
+    def __init__(self, fuel, adjacentModeratorLines = 0):
         super()
         self.fuel = fuel
+        self.adjacentModeratorLines = adjacentModeratorLines
 
 
 class Cooler(Cell):

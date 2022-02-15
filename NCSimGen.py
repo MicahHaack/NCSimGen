@@ -13,26 +13,29 @@ def main():
     
     print('============ Starting NCSG ============')
 
-    tbu = Fuel()
+    leu233 = Fuel(name='LEU-233 OX', efficiency=1.1, heat=216, criticality=78)
     
-    reactor = Reactor(5, 5, 5, 'Test Reactor')
+    reactor = Reactor(6, 6, 6, 'Test Reactor')
     
-    fc = FuelCell(tbu)
+    fc = FuelCell(leu233)
     reactor.grid[0][0][0] = fc
-    mod = Moderator(10, 10)
+    mod = Moderator(36, 1)
     reactor.grid[0][0][1] = mod
-    mod2 = Moderator(10, 10)
+    mod2 = Moderator(10, 1.1)
     reactor.grid[0][0][2] = mod2
-    mod3 = Moderator(10, 10)
+    mod3 = Moderator(22, 1.05)
     reactor.grid[0][0][3] = mod3
-    fc2 = FuelCell(tbu)
-    reactor.grid[0][0][4] = fc2
+    mod4 = Moderator(10, 1.1)
+    reactor.grid[0][0][4] = mod4
+    fc2 = FuelCell(leu233)
+    reactor.grid[0][0][5] = fc2
     cond = Conductor()
     reactor.grid[0][1][0] = cond
     reactor.grid[0][1][1] = cond
     reactor.grid[0][1][2] = cond
     reactor.grid[0][1][3] = cond
     reactor.grid[0][1][4] = cond
+    reactor.grid[0][1][5] = cond
     #cool = Cooler(100, None)
     #reactor.grid[1][0][1] = cool
     
