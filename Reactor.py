@@ -214,10 +214,10 @@ class Reactor:
                         numLines, totalFlux, lineEff = self.checkFuelCell(layerNum, rowNum, cellNum)
                         if numLines > 0 and totalFlux >= cell.fuel.criticality:
                             # TODO: check self-priming fuels
-                            # mark that the fuel cell is active
+                            # mark that the fuel cell is active and adjust the moderator line count
                             cell.active = True
                             cell.adjacentModeratorLines = numLines                            
-                            # if we hit a wall then increment the cluster count
+                            # if we hit a wall then increment the cluster count and attatch the cluster
                             if self.iterClusterSearch(layerNum, rowNum, cellNum, visited, tempCluster):
                                 clusterCount += 1
                                 clusters.append(tempCluster)
