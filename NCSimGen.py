@@ -7,6 +7,8 @@ from Cell import Irradiator
 from Cell import Cooler
 from Cell import Conductor
 
+from Cluster import Cluster
+
 from Reactor import Reactor
 
 def main():
@@ -30,17 +32,24 @@ def main():
     fc2 = FuelCell(leu233)
     reactor.grid[0][0][5] = fc2
     cond = Conductor()
-    reactor.grid[0][1][0] = cond
-    reactor.grid[0][1][1] = cond
-    reactor.grid[0][1][2] = cond
-    reactor.grid[0][1][3] = cond
-    reactor.grid[0][1][4] = cond
-    reactor.grid[0][1][5] = cond
+    reactor.grid[0][1][0] = mod
+    reactor.grid[0][2][0] = mod2
+    reactor.grid[0][3][0] = mod3
+    reactor.grid[0][4][0] = mod4
+    reactor.grid[0][5][0] = fc
+    # reactor.grid[0][1][0] = cond
+    # reactor.grid[0][1][1] = cond
+    # reactor.grid[0][1][2] = cond
+    # reactor.grid[0][1][3] = cond
+    # reactor.grid[0][1][4] = cond
+    # reactor.grid[0][1][5] = cond
     #cool = Cooler(100, None)
     #reactor.grid[1][0][1] = cool
     
     reactor.printGrid()
-    print(reactor.getNumValidClusters())
+    clusterCount, clusters = reactor.getValidClusters()
+    for clusterVal in range(clusterCount):
+        print(f'Cluster {clusterVal + 1} Total Heat: {clusters[clusterVal].netHeat}')
 
 if __name__ == "__main__":
     main()

@@ -4,8 +4,6 @@
 width, length, and height here refer to the reactor internal
 
 """
-
-from asyncio import shield
 import numpy as np
 
 from Cell import Cell
@@ -16,6 +14,8 @@ from Cell import Shield
 from Cell import Cooler
 from Cell import Irradiator
 from Cell import Conductor
+
+from Cluster import Cluster
 
 class Reactor:
 
@@ -32,7 +32,7 @@ class Reactor:
         
         self.name = name
     
-    def iterClusterSearch(self, layerNum, rowNum, cellNum, visited):
+    def iterClusterSearch(self, layerNum, rowNum, cellNum, visited, cluster):
         
         # check current bounds to see if we hit a wall
         if layerNum <= -1 or layerNum >= self.height:
@@ -54,20 +54,20 @@ class Reactor:
         foundWall = False
         # check current location and see if it is a valid cluster component
         if isinstance(cell, FuelCell) or isinstance(cell, Conductor) or isinstance(cell, Cooler):
-            
+            cluster.addCell(cell)
             # if so search the surrounding cells, if any hit a wall record that
             
-            if self.iterClusterSearch(layerNum + 1, rowNum, cellNum, visited):
+            if self.iterClusterSearch(layerNum + 1, rowNum, cellNum, visited, cluster):
                 foundWall = True
-            if self.iterClusterSearch(layerNum - 1, rowNum, cellNum, visited):
+            if self.iterClusterSearch(layerNum - 1, rowNum, cellNum, visited, cluster):
                 foundWall = True
-            if self.iterClusterSearch(layerNum, rowNum + 1, cellNum, visited):
+            if self.iterClusterSearch(layerNum, rowNum + 1, cellNum, visited, cluster):
                 foundWall = True
-            if self.iterClusterSearch(layerNum, rowNum - 1, cellNum, visited):
+            if self.iterClusterSearch(layerNum, rowNum - 1, cellNum, visited, cluster):
                 foundWall = True
-            if self.iterClusterSearch(layerNum, rowNum, cellNum + 1, visited):
+            if self.iterClusterSearch(layerNum, rowNum, cellNum + 1, visited, cluster):
                 foundWall = True
-            if self.iterClusterSearch(layerNum, rowNum, cellNum - 1, visited):
+            if self.iterClusterSearch(layerNum, rowNum, cellNum - 1, visited, cluster):
                 foundWall = True
 
         return foundWall
@@ -172,7 +172,7 @@ class Reactor:
     
         return validModLines, totalFlux, positionalEff
     
-    def getNumValidClusters(self):
+    def getValidClusters(self):
         
         # start by looking for fuel cells
         # all the following components connected to the fuel cell
@@ -180,17 +180,22 @@ class Reactor:
         
         # fuel cell
         # conductor
+        # -> this is an odd case: clusters can form with conductors and nothing else,
+        # but they won't be valid
+        
         # shield?
         # reflector?
         # cooler
         
         # I think moderators do not contribute to clusters
+        # -> correct
         
         # I'm going to start by making a boolean copy of the reactor to keep track of
         # already visited components
         
         visited = np.zeros_like(self.grid, dtype=bool)
         
+        clusters = []
         
         clusterCount = 0
         for layerNum, layer in enumerate(self.grid):
@@ -205,14 +210,19 @@ class Reactor:
                     # if we see a fuel cell start checking the cluster
                     if isinstance(cell, FuelCell):
                         # check if fuel cell is valid
+                        tempCluster = Cluster()
                         numLines, totalFlux, lineEff = self.checkFuelCell(layerNum, rowNum, cellNum)
                         if numLines > 0 and totalFlux >= cell.fuel.criticality:
                             # TODO: check self-priming fuels
+                            # mark that the fuel cell is active
+                            cell.active = True
+                            cell.adjacentModeratorLines = numLines                            
                             # if we hit a wall then increment the cluster count
-                            if self.iterClusterSearch(layerNum, rowNum, cellNum, visited):
+                            if self.iterClusterSearch(layerNum, rowNum, cellNum, visited, tempCluster):
                                 clusterCount += 1
+                                clusters.append(tempCluster)
 
-        return clusterCount
+        return clusterCount, clusters
     
         
         
